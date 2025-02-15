@@ -227,6 +227,7 @@ class ProjectSaver extends dn.Process {
 					initDir(levelDir, Const.LEVEL_EXTENSION);
 
 					var ops = [];
+					var failed = false;
 					for(l in savingData.externLevels) {
 						var fp = dn.FilePath.fromFile( project.makeAbsoluteFilePath(l.relPath) );
 						ops.push({
@@ -307,7 +308,6 @@ class ProjectSaver extends dn.Process {
 											fp.fileName = project.simplifiedExport ? "_bg" : level.identifier+"_bg";
 											fp.extension = "png";
 											try NT.writeFileBytes(fp.full, bytes) catch(_) {
-												failed = true;
 												error(L.t._('Failed to create background PNG in level "::id::"', {id:level.identifier}));
 											}
 											count++;

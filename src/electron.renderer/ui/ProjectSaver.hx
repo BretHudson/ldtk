@@ -232,11 +232,15 @@ class ProjectSaver extends dn.Process {
 						ops.push({
 							label: "Level "+l.id,
 							cb: ()->{
-								NT.writeFileString(fp.full, l.jsonStr);
+								log('  Writing level ${fp.full}...');
+								try NT.writeFileString(fp.full, l.jsonStr) catch(_) {
+									failed = true;
+									error( L.t._('Could not write the level JSON file (${fp.full}) here! Maybe the destination is read-only?') );
+								}
 							}
 						});
 					}
-					new ui.modal.Progress(Lang.t._("Saving levels"), ops, ()->beginNextState());
+					new ui.modal.Progress(Lang.t._("Saving levels"), ops, ()->if( !failed ) beginNextState());
 				}
 				else {
 					// Remove previous external levels
@@ -259,9 +263,13 @@ class ProjectSaver extends dn.Process {
 
 					// Init dir
 					if( project.simplifiedExport ) {
-						if( NT.fileExists(baseDir) )
-							NT.removeDir(baseDir);
-						NT.createDirs(baseDir);
+						try {
+							if( NT.fileExists(baseDir) )
+								NT.removeDir(baseDir);
+							NT.createDirs(baseDir);
+						} catch (_) {
+							error( L.t._("Failed to reinitialize baseDir") );
+						};
 					}
 					else
 						initDir(baseDir, "png");
@@ -298,7 +306,10 @@ class ProjectSaver extends dn.Process {
 											var fp = dn.FilePath.fromDir(pngDir);
 											fp.fileName = project.simplifiedExport ? "_bg" : level.identifier+"_bg";
 											fp.extension = "png";
-											NT.writeFileBytes(fp.full, bytes);
+											try NT.writeFileBytes(fp.full, bytes) catch(_) {
+												failed = true;
+												error(L.t._('Failed to create background PNG in level "::id::"', {id:level.identifier}));
+											}
 											count++;
 										}
 
@@ -328,7 +339,9 @@ class ProjectSaver extends dn.Process {
 													i.secondarySuffix
 												);
 												fp.extension = "png";
-												NT.writeFileBytes(fp.full, i.bytes);
+												try NT.writeFileBytes(fp.full, i.bytes) catch(_) {
+													error(L.t._('Failed to create PNG in layer "::layerId::" from level "::levelId::"', {layerId:li.def.identifier, levelId:level.identifier}));
+												}
 												count++;
 											}
 										}
@@ -357,7 +370,9 @@ class ProjectSaver extends dn.Process {
 												? "_composite"
 												: level.identifier;
 											fp.extension = "png";
-											NT.writeFileBytes(fp.full, pngBytes);
+											try NT.writeFileBytes(fp.full, pngBytes) catch(_) {
+												error( L.t._("Failed to export layers + levels export") );
+											};
 											count++;
 										}
 
@@ -375,7 +390,9 @@ class ProjectSaver extends dn.Process {
 										var fp = dn.FilePath.fromDir(pngDir);
 										fp.fileName = project.getPngFileName(level, project.defs.layers[0]);
 										fp.extension = "png";
-										NT.writeFileBytes(fp.full, pngBytes);
+										try NT.writeFileBytes(fp.full, pngBytes) catch(_) {
+											error( L.t._("Failed to export OneImagePerLevel") );
+										};
 										count++;
 
 								}
@@ -388,13 +405,17 @@ class ProjectSaver extends dn.Process {
 				}
 				else {
 					// Delete previous PNG dir
-					NT.removeDir( project.getAbsExternalFilesDir()+"/png" );
+					try NT.removeDir( project.getAbsExternalFilesDir()+"/png" ) catch (_) {
+						error( L.t._("Failed to delete /png dir (1)") );
+					};
 					beginNextState();
 				}
 
 				// Also remove PNG dir if Simplified export is enabled
 				if( project.simplifiedExport )
-					NT.removeDir( project.getAbsExternalFilesDir()+"/png" );
+					try NT.removeDir( project.getAbsExternalFilesDir()+"/png" ) catch (_) {
+						error( L.t._("Failed to delete /png dir (2)") );
+					};
 
 
 			case ExportingTiled:
@@ -419,9 +440,13 @@ class ProjectSaver extends dn.Process {
 				else {
 					// Remove previous tiled dir
 					var dir = project.getAbsExternalFilesDir() + "/tiled";
-					if( NT.fileExists(dir) )
-						NT.removeDir(dir);
-					beginNextState();
+					try {
+						if( NT.fileExists(dir) )
+							NT.removeDir(dir);
+						beginNextState();
+					} catch (_) {
+						error( L.t._("Failed to delete /tiled") );
+					}
 				}
 
 			case ExportingGMS:
@@ -446,9 +471,13 @@ class ProjectSaver extends dn.Process {
 				else {
 					// Remove previous GMS dir
 					var dir = project.getAbsExternalFilesDir() + "/gms2";
-					if( NT.fileExists(dir) )
-						NT.removeDir(dir);
-					beginNextState();
+					try {
+						if( NT.fileExists(dir) )
+							NT.removeDir(dir);
+						beginNextState();
+					} catch (_) {
+						error( L.t._("Failed to delete /gms2") );
+					}
 				}
 
 
@@ -473,7 +502,9 @@ class ProjectSaver extends dn.Process {
 								var fp = dirFp.clone();
 								fp.appendDirectory(l.identifier);
 								fp.fileWithExt = "data.json";
-								NT.writeFileString( fp.full, dn.data.JsonPretty.stringify( simpleJson, Full ) );
+								try NT.writeFileString( fp.full, dn.data.JsonPretty.stringify( simpleJson, Full ) ) catch(_) {
+									error( L.t._("Failed to write data.json") );
+								};
 							},
 						});
 
@@ -491,14 +522,20 @@ class ProjectSaver extends dn.Process {
 							fp.appendDirectory(l.identifier);
 							fp.fileName = li.def.identifier;
 							fp.extension = "csv";
-							NT.writeFileString( fp.full, csv.toString2D() );
+							try NT.writeFileString( fp.full, csv.toString2D() ) catch(_) {
+								error( L.t._("Failed to write csv file") );
+							};
 						}
 					}
 				}
 				else {
-					if( NT.fileExists(dirFp.full) )
-						NT.removeDir(dirFp.full);
-					beginNextState();
+					try {
+						if( NT.fileExists(dirFp.full) )
+							NT.removeDir(dirFp.full);
+						beginNextState();
+					} catch (_) {
+						error( L.t._("Failed to remove /simplified") );
+					}
 				}
 
 
@@ -513,7 +550,11 @@ class ProjectSaver extends dn.Process {
 				var dir = project.getAbsExternalFilesDir();
 				if( NT.fileExists(dir) && !NT.dirContainsAnyFile(dir) ) {
 					log('Removing empty dir: $dir');
-					NT.removeDir(dir);
+					try {
+						NT.removeDir(dir);
+					} catch (_) {
+						error( L.t._('Failed to remove empty dir: $dir') );
+					}
 				}
 
 				// Finalize
@@ -526,10 +567,14 @@ class ProjectSaver extends dn.Process {
 
 
 	function initDir(dirPath:String, ?removeFileExt:String) {
-		if( !NT.fileExists(dirPath) )
-			NT.createDirs(dirPath);
-		else if( removeFileExt!=null )
-			JsTools.removeDirFiles(dirPath, [removeFileExt]);
+		try {
+			if( !NT.fileExists(dirPath) )
+				NT.createDirs(dirPath);
+			else if( removeFileExt!=null )
+				JsTools.removeDirFiles(dirPath, [removeFileExt]);
+		} catch (_) {
+			error( L.t._('Failed to initialize "$dirPath"') );
+		}
 	}
 
 
